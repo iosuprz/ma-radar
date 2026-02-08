@@ -14,6 +14,26 @@ from dateutil import parser as dtparser
 
 DB_PATH = "results.sqlite"
 
+def safe_get(url: str, timeout: int = 60) -> requests.Response:
+    # Retries help when sites are slow or flaky from GitHub runners
+    last_err = None
+    for _ in range(3):
+        try:
+            r = requests.get(
+                url,
+                timeout=timeout,
+                headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Connection": "keep-alive",
+                },
+            )
+            r.raise_for_status()
+            return r
+        except Exception as e:
+            last_err = e
+    raise last_err
 
 def load_config() -> Dict[str, Any]:
     with open("config.json", "r", encoding="utf-8") as f:
@@ -81,7 +101,7 @@ def upsert_new(conn: sqlite3.Connection, item: Dict[str, Any]) -> bool:
 
 
 def fetch_businesswire(url: str) -> List[Dict[str, Any]]:
-    r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+    r = safe_get(url, timeout=60)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "lxml")
 
@@ -115,7 +135,7 @@ def fetch_businesswire(url: str) -> List[Dict[str, Any]]:
 
 
 def fetch_prnewswire(url: str) -> List[Dict[str, Any]]:
-    r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+    r = safe_get(url, timeout=45)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "lxml")
 
@@ -145,7 +165,7 @@ def fetch_prnewswire(url: str) -> List[Dict[str, Any]]:
 
 
 def fetch_globenewswire_json(url: str) -> List[Dict[str, Any]]:
-    r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+    r = safe_get(url, timeout=45)
     r.raise_for_status()
     data = r.json()
 
@@ -234,10 +254,18 @@ def main() -> None:
     conn = sqlite3.connect(DB_PATH)
     db_init(conn)
 
-    all_items: List[Dict[str, Any]] = []
-    all_items += fetch_businesswire(cfg["sources"]["businesswire"])
-    all_items += fetch_prnewswire(cfg["sources"]["prnewswire"])
-    all_items += fetch_globenewswire_json(cfg["sources"]["globenewswire_json"])
+   all_items: List[Dict[str, Any]] = []
+
+for name, fn in [
+    ("BusinessWire", lambda: fetch_businesswire(cfg["sources"]["businesswire"])),
+    ("PRNewswire", lambda: fetch_prnewswire(cfg["sources"]["prnewswire"])),
+    ("GlobeNewswire", lambda: fetch_globenewswire_json(cfg["sources"]["globenewswire_json"])),
+]:
+    try:
+        all_items += fn()
+    except Exception as e:
+        print(f"[WARN] {name} fetch failed: {e}")
+
 
     new_hits = []
     for it in all_items:
