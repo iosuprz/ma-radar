@@ -1,0 +1,13 @@
+{
+  "keywords": ["definitive agreement", "acquisition", "merge", "merger"],
+  "sources": {
+    "businesswire": "https://www.businesswire.com/newsroom/subject/merger-acquisition",
+    "prnewswire": "https://www.prnewswire.com/news-releases/financial-services-latest-news/acquisitions-mergers-and-takeovers-list/",
+    "globenewswire_json": "https://www.globenewswire.com/JSonFeed/subjectcode/27-Mergers%20and%20Acquisitions/feedTitle/GlobeNewswire%20-%20Mergers%20and%20Acquisitions"
+  },
+  "email": {
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587,
+    "subject_prefix": "Daily M&A Radar"
+  }
+}
