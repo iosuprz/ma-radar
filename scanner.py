@@ -254,25 +254,27 @@ def main() -> None:
     conn = sqlite3.connect(DB_PATH)
     db_init(conn)
 
-   all_items: List[Dict[str, Any]] = []
+    all_items: List[Dict[str, Any]] = []
 
-for name, fn in [
-    ("BusinessWire", lambda: fetch_businesswire(cfg["sources"]["businesswire"])),
-    ("PRNewswire", lambda: fetch_prnewswire(cfg["sources"]["prnewswire"])),
-    ("GlobeNewswire", lambda: fetch_globenewswire_json(cfg["sources"]["globenewswire_json"])),
-]:
-    try:
-        all_items += fn()
-    except Exception as e:
-        print(f"[WARN] {name} fetch failed: {e}")
+    sources = [
+        ("BusinessWire", lambda: fetch_businesswire(cfg["sources"]["businesswire"])),
+        ("PRNewswire", lambda: fetch_prnewswire(cfg["sources"]["prnewswire"])),
+        ("GlobeNewswire", lambda: fetch_globenewswire_json(cfg["sources"]["globenewswire_json"])),
+    ]
 
+    for name, fn in sources:
+        try:
+            all_items += fn()
+        except Exception as e:
+            print(f"[WARN] {name} fetch failed: {e}")
 
-    new_hits = []
+    new_hits: List[Dict[str, Any]] = []
     for it in all_items:
         text = f"{it.get('title','')} {it.get('snippet','')}"
         matched, score = match_keywords(text, keywords)
         if not matched:
             continue
+
         it["matched"] = matched
         it["score"] = score
 
